@@ -1,12 +1,10 @@
 #/usr/bin/python
-import os,sys
-
-class Distribution :
-
+import os,sys 
+class Distribution : 
     __nohup = True
     __nohupcommand = ' > /dev/null 2>&1 & '
 
-    def __init__(self,terminalPath,nodes,driver,jobs,nprocess=8):
+    def __init__(self,terminalPath,nodes,driver,jobs,nprocess):
         '''
         terminalPath : terminalPath direcotry path
         driver : enodeecuable file 
@@ -42,23 +40,26 @@ class Distribution :
 
     def cleanJobDriver(self):
         for (node,job) in zip(self.nodes,self.jobs) :
+            #print 'NOW',node,job
             if self.__nohup :
                 os.system('ssh '+node+' " rm -rf '+self.terminalPath+' '+self.__nohupcommand+'"')
             else :
                 os.system('ssh '+node+' " rm -rf '+self.terminalPath+' "')
 
-    def singlerun(self,node,job):
+    def singlerun(self,node,job,process):
 
-        jd = ' '.join([self.driver,self.terminalPath,job,str(self.nprocess)])
+        jd = ' '.join([self.driver,self.terminalPath,job,str(process),self.__nohupcommand])
+        fulljd = '/'.join([self.terminalPath,jd])
 
         if self.__nohup :
-            fulljd = '/'.join([self.terminalPath,jd,self.__nohupcommand])
-        else :
-            fulljd = '/'.join([self.terminalPath,jd])
+            fulljd = ' nohup '+fulljd
 
-        os.system('ssh '+node+' "'+fulljd+' "')
+        command = 'ssh '+node+' " python '+fulljd+' "'
+        os.system(command)
+
+        print node+' is running : ',command
 
     def run(self):
-        map(lambda (u,v) : self.singlerun(u,v),zip(self.nodes,self.jobs))
+        map(lambda (u,v,p) : self.singlerun(u,v,p),zip(*[self.nodes,self.jobs,self.nprocess]))
 
 
