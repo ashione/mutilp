@@ -1,4 +1,7 @@
 # mutilp
+V0,1
 thisi is simple framwork about mutilprocess in python
-V1.0 
-nothing i want to say
+
+V0,2
+add distribution function and caculate each node rate in sum
+    add first tools : imagesegment => Main function is croping picture to subimage,then storing in other diretory
