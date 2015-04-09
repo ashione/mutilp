@@ -27,22 +27,24 @@ map(lambda node : os.system("rm "+node),nodes)
 capicitySum = sum([ x*y for (x,y) in zip(cores,freq) ] )
 
 start = 0
-dsum = 0
 for i in range(0,len(nodes)):
 
     nf = open(nodes[i],'a+')
     end = start+ freq[i]*cores[i]*len(comdata)/capicitySum
 
-    if i == len(nodes)-1:
-        end = len(comdata)
-
     map(lambda x: nf.write(x+'\n'),comdata[start:end])
     nf.close()
 
     print i,len(comdata[start:end])
-    dsum = dsum + end-start+1
     start = end
 
-print 'commands total ',len(comdata),' converted commands ',start,dsum
+for i in range(start,len(comdata)):
+    nf = open(nodes[i%len(nodes)],'a+')
+    x = comdata[i]
+    nf.write(x+'\n'),
+    nf.close()
+
+print 'commands total ',len(comdata),' converted commands ',start
+print 'remainded divided in ',len(nodes),'files'
 
 print 'finished!'
