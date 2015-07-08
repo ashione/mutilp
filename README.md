@@ -6,3 +6,7 @@ thisi is simple framwork about mutilprocess in python
 add distribution function and caculate each node rate in sum
 
 > add first tools : imagesegment => Main function is croping picture to subimage,then storing in other diretory
+
+## V0.3
+
+> add extract_features lmdb generate svm format document
