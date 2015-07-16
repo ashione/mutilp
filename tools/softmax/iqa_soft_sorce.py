@@ -4,7 +4,7 @@ import numpy as np
 import re
 import collections
 import scipy.stats
-
+import glog
 def readlines(filename):
     f = open(filename)
     rawdata = f.readlines()
@@ -51,9 +51,10 @@ def getListFromDict(adict,classNum):
     return alist
 def argmaxFromSoftmax(ps):
     data = map(lambda x: map(lambda t : float(t),filter(lambda u :u!='',x.replace('\n','').split(' '))),readlines(ps.s)[2::3])
+    glog.info('Data Length : '+str(len(data)))
     data = np.array(data)
     data.shape = (data.size/ps.n,ps.n)
-    return map(lambda x: np.argmax(x) ,data)
+    return map(lambda x: np.argmax(x) ,data),data
 
 def argmaxFromSVM(ps):
     return map(lambda x : int(cleanLineorR(x)),readlines(ps.s))
@@ -72,15 +73,17 @@ p.add_argument('-d', help="store file", default="iqa_sorce.csv")
 p.add_argument('-q', action="store_true", default=False)
 ps = p.parse_args()
 
-#print ps.s
+glog.info('Now couting:'+ps.s)
 
 classNum = ps.n 
 
 label = map(lambda x : int(x.replace('\n','').split(' ')[-1]),readlines(ps.l))
 #print label[0]
 # argmax plus one because of starting from 0
-argmax = argmaxFromSoftmax(ps) if not ps.q else argmaxFromSVM(ps)
-
+if not ps.q :
+    argmax,data = argmaxFromSoftmax(ps) 
+else :
+    argmax =  argmaxFromSVM(ps)
 pos =  zip(argmax,label)
 
 if ps.c :
@@ -102,7 +105,7 @@ rdict_inner = collections.defaultdict(lambda :(0,0.0) )
 for x in pos :
    # print x
     rdict[int(x[1])]= (rdict[int(x[1])][0]+1,rdict[int(x[1])][1]+sdict[int(x[0])]) 
-
+#print sdict.keys()
 slist = getListFromDict(sdict,classNum)
 if not ps.q :
     for i,x     in enumerate(pos) :
@@ -122,7 +125,7 @@ error = 0.0
 
 #print (error/classNum )** 0.5
 
-print getac(pos)
+glog.info('Testing Ac : '+str(getac(pos)))
 
 #for pd,gt in zip(argmax,label):
 #    print pd,gt
