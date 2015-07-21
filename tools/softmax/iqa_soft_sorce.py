@@ -4,6 +4,7 @@ import numpy as np
 import re
 import collections
 import scipy.stats
+from scipy.optimize import curve_fit
 import glog
 def readlines(filename):
     f = open(filename)
@@ -49,6 +50,7 @@ def getListFromDict(adict,classNum):
 
             alist.append(adict[i][1]/adict[i][0])
     return alist
+
 def argmaxFromSoftmax(ps):
     data = map(lambda x: map(lambda t : float(t),filter(lambda u :u!='',x.replace('\n','').split(' '))),readlines(ps.s)[2::3])
     glog.info('Data Length : '+str(len(data)))
@@ -58,9 +60,22 @@ def argmaxFromSoftmax(ps):
 
 def argmaxFromSVM(ps):
     return map(lambda x : int(cleanLineorR(x)),readlines(ps.s))
-#print data.shape
 
-#print readlines(ps.l)[0]
+def logistic(X,beta1,beta2,beta3,beta4,beta5):
+    logisticPart = 0.5 - 1./(1.0+np.exp(beta2*(X-beta3)))
+    return beta1*logisticPart*beta4+beta5
+
+def plcc(X,Y):
+    try :
+        popt,pconv = curve_fit(logistic,xdata=X,ydata=Y,p0=(np.max(Y),0,np.mean(X),0.1,0.1),maxfev=5000)
+        #print 'popt: ',popt
+        #print 'conv : ',pconv
+    except RuntimeError,e:
+        glog.info('RuntimeError {0}'.format(e))
+    yhat = logistic(X,popt[0],popt[1],popt[2],popt[3],popt[4])
+    #print zip(yhat,Y)
+    glog.info('plcc: {0}'.format( scipy.stats.pearsonr(Y,yhat)))
+    glog.info('rmse: {0}'.format( sum(((Y-yhat)**2)/yhat.size)**0.5))
 
 p = argparse.ArgumentParser('iqa_softmax_score',usage='this is a script about counting score with iqa_net')
 p.add_argument('-s',help="source outfile")
@@ -70,9 +85,8 @@ p.add_argument('-n',type=int,help="class num")
 p.add_argument('-c', action="store_true", default=False)
 p.add_argument('-d', help="store file", default="iqa_sorce.csv")
 
-p.add_argument('-q', action="store_true", default=False)
-ps = p.parse_args()
-
+p.add_argument('-q', action="store_true", default=False) 
+ps = p.parse_args() 
 glog.info('Now couting:'+ps.s)
 
 classNum = ps.n 
@@ -119,11 +133,11 @@ fresult =  [(k, v[1]/v[0] )for k,v in rdict.items() ]
 error = 0.0
 
 #for i in range(1,classNum+1):
-#for i in range(0,classNum):
-    #print sdict[(i)],rdict[i][1]/rdict[i][0]
-#    error+=(sdict[(i)]-rdict[i][1]/rdict[i][0]) ** 2
+for i in range(0,classNum):
+   #print sdict[(i)],rdict[i][1]/rdict[i][0]
+    error+=(sdict[(i)]-rdict[i][1]/rdict[i][0]) ** 2
 
-#print (error/classNum )** 0.5
+glog.info('classNum : %d ; Error : %f ; Per class :%f ' % (classNum,error,(error /classNum)**0.5))
 
 glog.info('Testing Ac : '+str(getac(pos)))
 
@@ -140,12 +154,16 @@ if not ps.q :
 #print len(slist),len(rlist)
 #print zip(slist,rlist)
 #print 'spearmanr : ',scipy.stats.spearmanr(np.asarray(slist,dtype=int).ravel(),np.asarray(rlist,dtype=int).ravel())
-print 'spearmanr : ',scipy.stats.spearmanr(slist,rlist)
-print 'plcc:', scipy.stats.pearsonr(slist,rlist)
-
+glog.info('spearmanr : {0}'.format(scipy.stats.spearmanr(slist,rlist)))
+glog.info('plcc[no nonfit]: {0}'.format( scipy.stats.pearsonr(slist,rlist)))
+glog.info('kenall : {0}'.format(scipy.stats.kendalltau(slist,rlist)))
+#glog.info('*'*20)
+plcc(slist,rlist)
+#glog.info('*'*20)
+#plcc(rlist,slist)
 if not ps.q :
-    print 'spearmanr(inner) : ',scipy.stats.spearmanr(slist,rlist_inner)
-    print 'plcc(inner):', scipy.stats.pearsonr(slist,rlist_inner)
+    glog.info( 'spearmanr(inner) : {0}'.format(scipy.stats.spearmanr(slist,rlist_inner)))
+#    print 'plcc(inner):', scipy.stats.pearsonr(slist,rlist_inner)
 
 dumpdata = np.zeros((classNum,2),dtype=float)
 dumpdata[:,0] = np.asarray(slist)
