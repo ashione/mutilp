@@ -1,3 +1,5 @@
+# author : Nelson Zuo
+# date   : 2015-7-24
 import networkx as nx
 import numpy as np
 #import os
@@ -69,6 +71,10 @@ def drawByTripleArry(G,nodesDict,colorDict):
     G = nx.kruskal_mst(G)
     pos = nx.spring_layout(G)
 
+    #pos = nx.circular_layout(G)
+    #pos = nx.random_layout(G)
+    #pos = nx.spectral_layout(G)
+
     #print pos
     np.savetxt('pos.txt',pos.values())
     #print len(G.nodes()),len(nodesDict.keys())
@@ -78,16 +84,19 @@ def drawByTripleArry(G,nodesDict,colorDict):
     #patch = curvePos(pos)
     #ax.add_patch(patch)
 
+    # different nodes cover different color
     for node in G.nodes():
         G.node[node]['category'] = colorDict[nodesDict[node+1]]
     submap = {}
 
+    # counting each color subgraph map set
     for k,v in G.node.items():
         if not submap.has_key(v['category']) :
             submap[v['category']] = set()
         else :
             submap[v['category']].add(k)
 
+    # add connected_component_subgraphs in each subgraph
     for color in colorDict.values():
         spos = { x : pos[x] for x in submap[color] }
         #print spos
@@ -100,7 +109,8 @@ def drawByTripleArry(G,nodesDict,colorDict):
                 patch = curvePos(sgpos,color)
                 ax.add_patch(patch)
 
-    nx.draw_networkx(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],alpha=0.6,node_size=200)
+    nx.draw_networkx(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],
+                     alpha=0.6,node_size=200,labels=None,font_size=8)
     plt.xlim(-0.02,1.02)
     plt.ylim(-0.02,1.02)
     plt.show()
