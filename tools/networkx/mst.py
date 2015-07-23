@@ -69,7 +69,8 @@ def curvePos(pos,color):
 
 def drawByTripleArry(G,nodesDict,colorDict):
     G = nx.kruskal_mst(G)
-    pos = nx.spring_layout(G)
+    #pos = nx.spring_layout(G)
+    pos = nx.drawing.graphviz_layout(G,'neato')
 
     #pos = nx.circular_layout(G)
     #pos = nx.random_layout(G)
@@ -111,8 +112,14 @@ def drawByTripleArry(G,nodesDict,colorDict):
 
     nx.draw_networkx(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],
                      alpha=0.6,node_size=200,labels=None,font_size=8)
-    plt.xlim(-0.02,1.02)
-    plt.ylim(-0.02,1.02)
+    arrpos = np.asarray(pos.values())
+    xmin,xmax = arrpos[:,0].min()-arrpos[:,0].mean()*0.05,arrpos[:,0].max()+arrpos[:,0].mean()*0.05
+    ymin,ymax = arrpos[:,1].min()-arrpos[:,1].mean()*0.05,arrpos[:,1].max()+arrpos[:,1].mean()*0.05
+    glog.info('x range[%f,%f], y range[%f,%f]' %(xmin,xmax,ymin,ymax))
+    plt.xlim(xmin,xmax)
+    plt.ylim(ymin,ymax)
+    #plt.xlim(-0.02*1000,1.02*1500)
+    #plt.ylim(-0.02*1000,1.02*1500)
     plt.show()
 
 if __name__ == '__main__':
