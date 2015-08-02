@@ -2,9 +2,10 @@
 # date   : 2015-7-24
 # 7-25 adding spring layout in graphviz
 # 7-26 adding HierarchicalTree
+# 7-30 fix spring layout distance
 import networkx as nx
 import numpy as np
-import os
+#import os
 import matplotlib.pyplot as plt
 import glog
 import xlrd
@@ -290,6 +291,32 @@ class GraphGenerator(object):
         return snodedict
 
     @classmethod
+    def treePreOrder(self,node):
+        if node.is_leaf():
+            return [node.id]
+        tempNodes = [node.id]
+        tempNodes.extend(self.treePreOrder(node.left))
+        tempNodes.extend(self.treePreOrder(node.right))
+        return tempNodes
+
+    @classmethod
+    def clusterNodes(self,node,treecolordict):
+        if node.is_leaf():
+            return {node.id : node.id}
+
+        if treecolordict[node.id] is not 'black':
+            #print node.id,node.count,node.left.id,node.right.id
+            #print node.pre_order()
+            return {node.id : self.treePreOrder(node)}
+
+        rootorder = {}
+        leftorder = self.clusterNodes(node.left,treecolordict)
+        rightorder = self.clusterNodes(node.right,treecolordict)
+        rootorder.update(leftorder)
+        rootorder.update(rightorder)
+        return rootorder
+
+    @classmethod
     def drawHierarchicalTree(self,G,nodesDict,colorDict):
         G = nx.kruskal_mst(G)
         for node in G.nodes():
@@ -300,16 +327,18 @@ class GraphGenerator(object):
         #dist_matrix[dist_matrix == 0 ] = np.inf
         #print 'dist max',dist_matrix.max()
         linkage_matrix = linkage(dist_matrix, 'single',metric='euclidean')
+        #linkage_matrix = linkage(dist_matrix, 'centroid',metric='euclidean')
         #linkage_matrix = linkage(dist_matrix, 'complete',metric='euclidean')
-        #np.savetxt('link.txt',linkage_matrix,fmt='%d %d %f %d')
+        np.savetxt('link.txt',linkage_matrix,fmt='%d %d %f %d')
+        np.savetxt('dist.txt',dist_matrix,fmt='%f')
         plt.plot()
         plt.title("ascending")
 
         degrm = dendrogram(linkage_matrix,
                    #p=10000,
                    #color_threshold=1,
-                   #truncate_mode='lastp',
-                   truncate_mode='mlab',
+                   truncate_mode='lastp',
+                   #truncate_mode='mlab',
                    #truncate_mode='level',
                    #truncate_mode='mtica',
                    get_leaves = True,
@@ -326,12 +355,14 @@ class GraphGenerator(object):
         link_tree = self.distToTree(linkage_matrix)
 
         treecolordict = self.travelTree(link_tree,G)
-        count = 0
-        for i in range(dist_matrix.shape[0]-1,(dist_matrix.shape[0]-1)*2):
-            if treecolordict[i] is not 'black':
-                count += 1
+        treeclusters = self.clusterNodes(link_tree,treecolordict)
+        glog.info('clusters : {0},\n{1}'.format(treeclusters,len(treeclusters.keys())))
+        #count = 0
+        #for i in range(dist_matrix.shape[0]-1,(dist_matrix.shape[0]-1)*2):
+        #    if treecolordict[i] is not 'black':
+        #        count += 1
 
-        glog.info('There are %d clusters'%count)
+        #glog.info('There are %d clusters'%count)
 
         #print type(link_tree),link_tree.is_leaf()
 
@@ -369,8 +400,8 @@ if __name__ == '__main__':
     #    print G.edge[x][y]
     #    G.edge[x][y]['weight'] = 1
     #    G.edge[y][x]['weight'] = 1
-    generator.drawByTripleArry(G,xlsxDict,colorDict)
-    #generator.drawHierarchicalTree(G,xlsxDict,colorDict)
+    #generator.drawByTripleArry(G,xlsxDict,colorDict)
+    generator.drawHierarchicalTree(G,xlsxDict,colorDict)
     #generator.distMaxInPath(G)
     plt.show()
     #print G.edge[0][173]['weight']
