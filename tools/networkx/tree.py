@@ -15,6 +15,7 @@ from scipy.spatial import ConvexHull
 from scipy.cluster.hierarchy import dendrogram, linkage
 import scipy.cluster.hierarchy as sch
 import argparse
+import poly
 #coding=utf-8
 class GraphGenerator(object):
     @classmethod
@@ -80,13 +81,13 @@ class GraphGenerator(object):
         verts = np.asarray(verts)
         hull = ConvexHull(verts)
         hull_border = hull.points[hull.vertices]
-        glog.info( 'ConvexHull Area : %f' %self.PolyArea2D(hull_border))
+        #glog.info( 'ConvexHull Area : %f' %self.PolyArea2D(hull_border))
 
         patch= mpatches.Polygon(hull_border,facecolor=color,alpha=0.3,linestyle='dashed')
         return patch,hull_border
 
     @classmethod
-    def curvePos(pos,color):
+    def curvePos(self,pos,color):
         Path = mpath.Path
         patch_data = []
         for k,ipos in pos.items():
@@ -102,12 +103,23 @@ class GraphGenerator(object):
         #patch= mpatches.PathPatch(path,facecolor=color,alpha=0.5)
         #patch= mpatches.Polygon(verts,facecolor=color,alpha=0.5)
         verts = np.asarray(verts)
+        print 'pos',pos
+        print 'verts:',verts
         fcenter = lambda x : (np.max(x)+np.min(x))/2
         xindex,yindex = fcenter(verts[:,0]),fcenter(verts[:,1])
-        width = np.max(verts[:,0]) - np.min(verts[:,0])+ np.median(verts[:,0])*0.1
-        height = np.max(verts[:,1]) - np.min(verts[:,1]) + np.median(verts[:,1])*0.1
-        patch= mpatches.Ellipse((xindex,yindex),height=height,width=width,facecolor=color,alpha=0.3,linestyle='dashed')
-        return patch
+        dist_r = np.sum(np.power(verts[0,:]-verts[1,:],2.0))**0.5/2.0
+        dist_a = dist_r/0.618
+        dist_b = dist_r
+        #width = ( np.max(verts[:,0]) - np.min(verts[:,0])+ np.median(verts[:,0])*0.00 )/2.0
+        #height = ( np.max(verts[:,1]) - np.min(verts[:,1]) + np.median(verts[:,1])*0.00 )/2.0
+        angle = np.arctan(poly.get_slope(verts[0,:],verts[1,:]))
+        #angle = poly.get_slope(verts[0,:],verts[1,:])
+        if angle < 0 :
+            angle += 1.0*np.pi
+        print angle,verts,xindex,yindex
+        #patch= mpatches.Ellipse((xindex,yindex),height=height,width=width,angle=angle,facecolor=color,alpha=0.3,linestyle='dashed')
+        patch= mpatches.Ellipse((xindex,yindex),height=2*dist_a,width=2*dist_b,facecolor=color,alpha=0.6,linestyle='dashed')
+        return patch,verts
 
     @classmethod
     def autofited(self,G,pos):
@@ -136,6 +148,7 @@ class GraphGenerator(object):
 
     @classmethod
     def drawByTripleArry(self,G,nodesDict,colorDict,showAllPoly=False):
+
         G = nx.kruskal_mst(G)
         #pos = nx.spring_layout(G)
         #pos = nx.drawing.graphviz_layout(G,'fdp')
@@ -173,24 +186,40 @@ class GraphGenerator(object):
         # counting each color subgraph map set
         for k,v in G.node.items():
             if not submap.has_key(v['category']) :
-                submap[v['category']] = set()
+                submap[v['category']] = set([k])
             else :
                 submap[v['category']].add(k)
 
+        glog.info('submap :{0}'.format(submap))
         # add connected_component_subgraphs in each subgraph
         patchList = []
         for color in colorDict.values():
             spos = { x : pos[x] for x in submap[color] }
             #print spos
-            if len(spos.keys()) <=2 :
+            if len(spos.keys()) <2 :
                 continue
             subG =  G.subgraph(spos.keys())
+            glog.info('sub nodes: {0}'.format(subG.edges()))
             for connt in nx.connected_component_subgraphs(subG):
+            #for connt in nx.weakly_connected_component_subgraphs(subG):
                 sgpos = { x : pos[x] for x in connt.nodes() }
+                #if len(filter(lambda x : x == 25, sgpos.keys())):
+                #    print sgpos
+                #    print spos
+                #    glog.info('connt : {0}'.format(connt.nodes()))
+                #    print 'subG',subG
+                #    dnodes = G.edge[25].keys()
+                #    for x in dnodes :
+                #        print x,G.node[x]['category']
+                #if 24 in sgpos.keys():
+                #    glog.info('connt : {0}'.format(connt.nodes()))
+
                 if len(sgpos.keys())>2:
                     #patch = curvePos(sgpos,color)
                     patchList.append(self.curvePosHull(sgpos,color))
                     #patchList.append(patch)
+                elif len(sgpos.keys())==2:
+                    patchList.append(self.curvePos(sgpos,color))
 
         if not showAllPoly :
             patchList = self.check_border(patchList)
@@ -201,7 +230,7 @@ class GraphGenerator(object):
         #                 #labels=None)
         nx.draw_networkx_nodes(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],
                          alpha=0.6, node_size=[G.node[node]['node_size'] for node in G])
-                         #labels=None)
+        nx.draw_networkx_labels(G,pos)#,labels=[ node for node in G.nodes() ])
         #nx.draw_networkx_edges(G,pos=pos)
         for edge in G.edges():
             #edge_size=  G.edge[edge[0]][ 'edge_size' ]
@@ -309,7 +338,7 @@ class GraphGenerator(object):
     @classmethod
     def check_border(self,patchList):
         converPatches = []
-        import poly
+        #converPatches.append(filter(lambda x: type(x) is not tuple,patchList)
         for i in range(len(patchList)):
             flag = True
             for j in range(0,len(patchList)):
@@ -340,8 +369,8 @@ if __name__ == '__main__':
     #    print G.edge[x][y]
     #    G.edge[x][y]['weight'] = 1
     #    G.edge[y][x]['weight'] = 1
-    #generator.drawByTripleArry(G,xlsxDict,colorDict)
-    generator.drawHierarchicalTree(G,xlsxDict,colorDict)
+    generator.drawByTripleArry(G,xlsxDict,colorDict)
+    #generator.drawHierarchicalTree(G,xlsxDict,colorDict)
     #generator.distMaxInPath(G)
     plt.show()
     #print G.edge[0][173]['weight']
