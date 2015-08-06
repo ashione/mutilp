@@ -5,7 +5,7 @@
 # 7-30 fix spring layout distance
 import networkx as nx
 import numpy as np
-#import os
+import os
 import matplotlib.pyplot as plt
 import glog
 import xlrd
@@ -46,7 +46,8 @@ class GraphGenerator(object):
         nodesSeq  =  np.asarray(map(lambda x : x.value,first_sheet.col_slice(start_rowx=2,end_rowx=first_sheet.nrows,colx=0)),dtype=np.int)
         nodesType =  map(lambda x : x.value,first_sheet.col_slice(start_rowx=2,end_rowx=first_sheet.nrows,colx=1))
         glog.info('Reading nodes label orders and types : %d' %(nodesSeq.size))
-        return { s : t for s,t in zip(nodesSeq,nodesType)}
+        self.xlxsDict = { s : t for s,t in zip(nodesSeq,nodesType)}
+        return self.xlxsDict
 
 
     @classmethod
@@ -84,7 +85,7 @@ class GraphGenerator(object):
         hull_border = hull.points[hull.vertices]
         #glog.info( 'ConvexHull Area : %f' %self.PolyArea2D(hull_border))
 
-        patch= mpatches.Polygon(hull_border,facecolor=color,alpha=0.3,linestyle='dashed')
+        patch= mpatches.Polygon(hull_border,facecolor=color,alpha=0.6,linestyle='dashed')
         return patch,hull_border
 
     @classmethod
@@ -173,7 +174,7 @@ class GraphGenerator(object):
         # different nodes cover different color
         for node in G.nodes():
             G.node[node]['category'] = colorDict[nodesDict[node+1]]
-            G.node[node]['node_size'] = np.log(np.e+G.degree([node])[node])*100
+            G.node[node]['node_size'] = np.log(np.e+G.degree([node])[node])*20
         # differen edges width
         #for edge in G.edges():
         #    edge = edge[0]
@@ -194,6 +195,7 @@ class GraphGenerator(object):
         glog.info('submap :{0}'.format(submap))
         # add connected_component_subgraphs in each subgraph
         patchList = []
+        clusterNodesDt = []
         for color in colorDict.values():
             spos = { x : pos[x] for x in submap[color] }
             #print spos
@@ -214,14 +216,16 @@ class GraphGenerator(object):
                 #        print x,G.node[x]['category']
                 #if 24 in sgpos.keys():
                 #    glog.info('connt : {0}'.format(connt.nodes()))
-
+                if len(sgpos.keys()) == 1:
+                    continue
+                clusterNodesDt.append((self.xlxsDict[connt.nodes()[0]],sgpos.keys()))
                 if len(sgpos.keys())>2:
                     #patch = curvePos(sgpos,color)
                     patchList.append(self.curvePosHull(sgpos,color))
                     #patchList.append(patch)
                 elif len(sgpos.keys())==2:
                     patchList.append(self.curvePos(sgpos,color))
-
+        self.writeTreeCluster(clusterNodesDt,'data/alpha_%.2f_clusterfn.txt'%self.alpha)
         if not showAllPoly :
             patchList = self.check_border(patchList)
         map(lambda patch:ax.add_patch(patch),patchList)
@@ -231,7 +235,8 @@ class GraphGenerator(object):
         #                 #labels=None)
         nx.draw_networkx_nodes(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],
                          alpha=0.6, node_size=[G.node[node]['node_size'] for node in G])
-        nx.draw_networkx_labels(G,pos)#,labels=[ node for node in G.nodes() ])
+        # draw lables
+        #nx.draw_networkx_labels(G,pos)#,labels=[ node for node in G.nodes() ])
         #nx.draw_networkx_edges(G,pos=pos)
         for edge in G.edges():
             #edge_size=  G.edge[edge[0]][ 'edge_size' ]
@@ -244,9 +249,21 @@ class GraphGenerator(object):
         glog.info('x range[%f,%f], y range[%f,%f]' %(xmin,xmax,ymin,ymax))
         plt.xlim(xmin,xmax)
         plt.ylim(ymin,ymax)
+        plt.savefig('data/alpha_%.2f_clusterfig.png'%self.alpha)
         #plt.xlim(-0.02*1000,1.02*1500)
         #plt.ylim(-0.02*1000,1.02*1500)
         #plt.show()
+
+    @classmethod
+    def writeTreeCluster(self,clusterNodesDt,clusterfn='clusterfn.txt'):
+        if os.path.exists(clusterfn):
+            glog.info('exists clusterfn,now removing it ,then writing')
+            os.remove(clusterfn)
+        print clusterNodesDt
+        with open(clusterfn,'w') as fp :
+            map(lambda line:fp.write('{0} : {1}\n'.format(str( line[0].encode('utf8') ),' '.join(map(lambda x: str(x),line[1])))),clusterNodesDt)
+            fp.close()
+            glog.info('write done!')
 
     @classmethod
     def distMaxInPath(self,G):
@@ -381,15 +398,21 @@ class GraphGenerator(object):
                 converPatches.append(patchList[i][0])
         return converPatches
 
-if __name__ == '__main__':
+    @classmethod
+    def setalpha(self,alpha):
+        self.alpha = alpha
+
+def diffalpha(alpha):
     #gdata = np.loadtxt('./firmmst.txt')
     #drawByTripleArry(ConvertTripleArrayToGraph('./firmmst.txt'))
     parser =argparse.ArgumentParser(description="draw graph script.")
     parser.add_argument('-xls',type=str,default='./companyPty.xlsx',help='excel file with color map')
-    parser.add_argument('-df',type=str,default='./firmMstMatrix.txt',help='data set sources filename')
+    parser.add_argument('-df',type=str,default='./pretrain/distfirm.txt',help='data set sources filename')
     args = parser.parse_args()
     generator = GraphGenerator()
+    generator.setalpha(alpha)
     xlsxDict =  generator.ConvertXlsxToArray(args.xls)
+    #print xlsxDict[1]
     colorTypes = set(xlsxDict.values())
     colorDict = { x : ('#%06X' % random.randint(0,0xFFFFFF)) for x  in colorTypes }
     #drawByTripleArry(ConvertTripleArrayToGraph('./firmmst.txt'),xlsxDict,colorDict)
@@ -400,10 +423,19 @@ if __name__ == '__main__':
     #    print G.edge[x][y]
     #    G.edge[x][y]['weight'] = 1
     #    G.edge[y][x]['weight'] = 1
-    #generator.drawByTripleArry(G,xlsxDict,colorDict)
-    generator.drawHierarchicalTree(G,xlsxDict,colorDict)
+    generator.drawByTripleArry(G,xlsxDict,colorDict)
+    #generator.drawHierarchicalTree(G,xlsxDict,colorDict)
     #generator.distMaxInPath(G)
-    plt.show()
+    #plt.show()
     #print G.edge[0][173]['weight']
     #print nx.algorithms.topological_sort(G)
     #print gdata
+if __name__ == '__main__':
+    for alpha in range(50,100,5):
+        alpha = float(alpha*1.0/100)
+        pwd = os.getcwd()
+        os.chdir('./pretrain')
+        os.system('python MatrixTransform.py %f' %alpha)
+        os.chdir(pwd)
+        diffalpha(alpha)
+
