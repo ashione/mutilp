@@ -3,6 +3,7 @@
 # 7-25 adding spring layout in graphviz
 # 7-26 adding HierarchicalTree
 # 7-30 fix spring layout distance
+# 8-7  generate data and picture
 import networkx as nx
 import numpy as np
 import os
@@ -36,6 +37,17 @@ class GraphGenerator(object):
         G = nx.Graph()
         map(lambda x : G.add_edge(np.int(x[0]),np.int(x[1]),weight=x[2]),data)
         return G
+
+    @classmethod
+    def ConvertOriginalXlsx(self,filename):
+        glog.info('now reading xlsx : company name')
+        compyorgdata = xlrd.open_workbook(filename)
+        first_sheet = compyorgdata.sheet_by_index(0)
+        compyname  =  np.asarray(map(lambda x : x.value,first_sheet.col_slice(start_rowx=2,end_rowx=first_sheet.nrows,colx=1)))
+        glog.info('company name : {0}'.format(compyname))
+        self.compyname = compyname
+        #print compyname[0],compyname[300]
+        return self.compyname
 
     @classmethod
     def ConvertXlsxToArray(self,filename):
@@ -174,7 +186,7 @@ class GraphGenerator(object):
         # different nodes cover different color
         for node in G.nodes():
             G.node[node]['category'] = colorDict[nodesDict[node+1]]
-            G.node[node]['node_size'] = np.log(np.e+G.degree([node])[node])*20
+            G.node[node]['node_size'] = np.log(np.e+G.degree([node])[node])*30
         # differen edges width
         #for edge in G.edges():
         #    edge = edge[0]
@@ -218,7 +230,7 @@ class GraphGenerator(object):
                 #    glog.info('connt : {0}'.format(connt.nodes()))
                 if len(sgpos.keys()) == 1:
                     continue
-                clusterNodesDt.append((self.xlxsDict[connt.nodes()[0]],sgpos.keys()))
+                clusterNodesDt.append((self.xlxsDict[connt.nodes()[0]+1],sgpos.keys()))
                 if len(sgpos.keys())>2:
                     #patch = curvePos(sgpos,color)
                     patchList.append(self.curvePosHull(sgpos,color))
@@ -236,7 +248,7 @@ class GraphGenerator(object):
         nx.draw_networkx_nodes(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],
                          alpha=0.6, node_size=[G.node[node]['node_size'] for node in G])
         # draw lables
-        #nx.draw_networkx_labels(G,pos)#,labels=[ node for node in G.nodes() ])
+        nx.draw_networkx_labels(G,pos,font_size=4)#,labels=[ node for node in G.nodes() ])
         #nx.draw_networkx_edges(G,pos=pos)
         for edge in G.edges():
             #edge_size=  G.edge[edge[0]][ 'edge_size' ]
@@ -249,7 +261,7 @@ class GraphGenerator(object):
         glog.info('x range[%f,%f], y range[%f,%f]' %(xmin,xmax,ymin,ymax))
         plt.xlim(xmin,xmax)
         plt.ylim(ymin,ymax)
-        plt.savefig('data/alpha_%.2f_clusterfig.png'%self.alpha)
+        plt.savefig('data/alpha_%.2f_clusterfig.png'%self.alpha,dpi=400,pad_inches=0.05)
         #plt.xlim(-0.02*1000,1.02*1500)
         #plt.ylim(-0.02*1000,1.02*1500)
         #plt.show()
@@ -261,7 +273,7 @@ class GraphGenerator(object):
             os.remove(clusterfn)
         print clusterNodesDt
         with open(clusterfn,'w') as fp :
-            map(lambda line:fp.write('{0} : {1}\n'.format(str( line[0].encode('utf8') ),' '.join(map(lambda x: str(x),line[1])))),clusterNodesDt)
+            map(lambda line:fp.write('{0} : {1}\n'.format(str( line[0].encode('utf8') ),' '.join(map(lambda x: str(self.compyname[x].encode('utf8'))+' ('+str(x)+') ',line[1])))),clusterNodesDt)
             fp.close()
             glog.info('write done!')
 
@@ -311,7 +323,7 @@ class GraphGenerator(object):
     def treePreOrder(self,node):
         if node.is_leaf():
             return [node.id]
-        tempNodes = [node.id]
+        tempNodes = []
         tempNodes.extend(self.treePreOrder(node.left))
         tempNodes.extend(self.treePreOrder(node.right))
         return tempNodes
@@ -332,6 +344,14 @@ class GraphGenerator(object):
         rootorder.update(leftorder)
         rootorder.update(rightorder)
         return rootorder
+
+    @classmethod 
+    def writeTreeRecords(self,treecluster,tclusterf='./data/alpha_0.50_clustertree.txt'): 
+        if os.path.exists(tclusterf): 
+            os.remove(tclusterf) 
+        with open(tclusterf,'w') as fp : 
+            map(lambda x: fp.write('{0},{1},{2}\n'.format(self.xlxsDict[x[0]+1].encode('utf8'),x,' '.join(map(lambda y : self.compyname[y].encode('utf8'),x)))) if type(x) is list and len(x) >1 else 0, treecluster.values()) 
+            glog.info('write cluster tree done!') 
 
     @classmethod
     def drawHierarchicalTree(self,G,nodesDict,colorDict):
@@ -366,14 +386,17 @@ class GraphGenerator(object):
                    show_contracted = True,
                    #link_color_func = lambda x : G.node[x%smxt.shape[0]]['category'],
                    )
-        #glog.info('{0},{1},{2}'.format( len( degrm['leaves'] ),degrm['leaves'],degrm))
+        glog.info('{0},{1},{2}'.format( len( degrm['leaves'] ),degrm['leaves'],degrm))
         glog.info('{0},\nlen = {1}'.format( degrm['ivl'],len(degrm['ivl'])))
-        print len(set(degrm['ivl']))
+        #print len(set(degrm['ivl']))
         link_tree = self.distToTree(linkage_matrix)
 
         treecolordict = self.travelTree(link_tree,G)
         treeclusters = self.clusterNodes(link_tree,treecolordict)
+        self.writeTreeRecords(treeclusters,'data/alpha_%.2f_clustertree.txt'%self.alpha)
         glog.info('clusters : {0},\n{1}'.format(treeclusters,len(treeclusters.keys())))
+        plt.savefig('data/alpha_%.2f_treefig.png'%self.alpha,pad_inches=0.05)
+        #plt.show()
         #count = 0
         #for i in range(dist_matrix.shape[0]-1,(dist_matrix.shape[0]-1)*2):
         #    if treecolordict[i] is not 'black':
@@ -407,10 +430,12 @@ def diffalpha(alpha):
     #drawByTripleArry(ConvertTripleArrayToGraph('./firmmst.txt'))
     parser =argparse.ArgumentParser(description="draw graph script.")
     parser.add_argument('-xls',type=str,default='./companyPty.xlsx',help='excel file with color map')
+    parser.add_argument('-tls',type=str,default='./shouxin.xlsx',help='excel file with node name')
     parser.add_argument('-df',type=str,default='./pretrain/distfirm.txt',help='data set sources filename')
     args = parser.parse_args()
     generator = GraphGenerator()
     generator.setalpha(alpha)
+    compyname =  generator.ConvertOriginalXlsx(args.tls)
     xlsxDict =  generator.ConvertXlsxToArray(args.xls)
     #print xlsxDict[1]
     colorTypes = set(xlsxDict.values())
@@ -424,7 +449,7 @@ def diffalpha(alpha):
     #    G.edge[x][y]['weight'] = 1
     #    G.edge[y][x]['weight'] = 1
     generator.drawByTripleArry(G,xlsxDict,colorDict)
-    #generator.drawHierarchicalTree(G,xlsxDict,colorDict)
+    generator.drawHierarchicalTree(G,xlsxDict,colorDict)
     #generator.distMaxInPath(G)
     #plt.show()
     #print G.edge[0][173]['weight']
@@ -438,4 +463,5 @@ if __name__ == '__main__':
         os.system('python MatrixTransform.py %f' %alpha)
         os.chdir(pwd)
         diffalpha(alpha)
+    #diffalpha(0.50)
 
