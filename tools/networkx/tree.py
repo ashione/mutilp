@@ -4,6 +4,7 @@
 # 7-26 adding HierarchicalTree
 # 7-30 fix spring layout distance
 # 8-7  generate data and picture
+# 8-9  generate tree dist and dpi about picture
 import networkx as nx
 import numpy as np
 import os
@@ -18,6 +19,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 import scipy.cluster.hierarchy as sch
 import argparse
 import poly
+#from IPython.Debugger import Tracer
 #coding=utf-8
 class GraphGenerator(object):
     @classmethod
@@ -261,7 +263,7 @@ class GraphGenerator(object):
         glog.info('x range[%f,%f], y range[%f,%f]' %(xmin,xmax,ymin,ymax))
         plt.xlim(xmin,xmax)
         plt.ylim(ymin,ymax)
-        plt.savefig('data/alpha_%.2f_clusterfig.png'%self.alpha,dpi=400,pad_inches=0.05)
+        plt.savefig('data/alpha_%.2f_clusterfig.pdf'%self.alpha,format='pdf',dpi=20)
         #plt.xlim(-0.02*1000,1.02*1500)
         #plt.ylim(-0.02*1000,1.02*1500)
         #plt.show()
@@ -273,7 +275,7 @@ class GraphGenerator(object):
             os.remove(clusterfn)
         print clusterNodesDt
         with open(clusterfn,'w') as fp :
-            map(lambda line:fp.write('{0} : {1}\n'.format(str( line[0].encode('utf8') ),' '.join(map(lambda x: str(self.compyname[x].encode('utf8'))+' ('+str(x)+') ',line[1])))),clusterNodesDt)
+            map(lambda line:fp.write('{0} : {1} \n'.format(str( line[0].encode('utf8') ),' '.join(map(lambda x: str(self.compyname[x].encode('utf8'))+' ('+str(x)+') ',line[1])))),clusterNodesDt)
             fp.close()
             glog.info('write done!')
 
@@ -307,6 +309,7 @@ class GraphGenerator(object):
         #print node.id,node.count
         if node.is_leaf():
             #print node.id,node.count
+            #print glog.info(node.dist)
             return {node.id:G.node[node.id]['category']}
         snodedict = {}
         leftdict = self.travelTree(node.left,G)
@@ -322,21 +325,25 @@ class GraphGenerator(object):
     @classmethod
     def treePreOrder(self,node):
         if node.is_leaf():
+    #        Tracer()
+            #print glog.info(node.dist)
+            #return {'id' : [node.id],'dist' : node.dist}
             return [node.id]
         tempNodes = []
         tempNodes.extend(self.treePreOrder(node.left))
         tempNodes.extend(self.treePreOrder(node.right))
-        return tempNodes
+        #return {'id' : tempNodes , 'dist' : node.dist}
+        return  tempNodes
 
     @classmethod
     def clusterNodes(self,node,treecolordict):
         if node.is_leaf():
-            return {node.id : node.id}
+            return {node.id : (node.id,node.dist)}
 
         if treecolordict[node.id] is not 'black':
             #print node.id,node.count,node.left.id,node.right.id
             #print node.pre_order()
-            return {node.id : self.treePreOrder(node)}
+            return {node.id : (self.treePreOrder(node),node.dist)}
 
         rootorder = {}
         leftorder = self.clusterNodes(node.left,treecolordict)
@@ -345,13 +352,17 @@ class GraphGenerator(object):
         rootorder.update(rightorder)
         return rootorder
 
-    @classmethod 
-    def writeTreeRecords(self,treecluster,tclusterf='./data/alpha_0.50_clustertree.txt'): 
-        if os.path.exists(tclusterf): 
-            os.remove(tclusterf) 
-        with open(tclusterf,'w') as fp : 
-            map(lambda x: fp.write('{0},{1},{2}\n'.format(self.xlxsDict[x[0]+1].encode('utf8'),x,' '.join(map(lambda y : self.compyname[y].encode('utf8'),x)))) if type(x) is list and len(x) >1 else 0, treecluster.values()) 
-            glog.info('write cluster tree done!') 
+    @classmethod
+    def writeTreeRecords(self,treecluster,tclusterf='./data/alpha_0.50_clustertree.txt'):
+        if os.path.exists(tclusterf):
+            os.remove(tclusterf)
+        #treecluster
+        with open(tclusterf,'w') as fp :
+            map(lambda x: fp.write('{0},{1}, dist : {2} , {3}\n'.format(\
+                self.xlxsDict[x[0][0]+1].encode('utf8'),x[0],x[1],' '.join(map(lambda y : self.compyname[y].encode('utf8'),x[0])))) \
+                if type(x[0]) is list and len(x[0]) >1 else 0\
+                ,treecluster.values())
+            glog.info('write cluster tree done!')
 
     @classmethod
     def drawHierarchicalTree(self,G,nodesDict,colorDict):
@@ -390,7 +401,7 @@ class GraphGenerator(object):
         glog.info('{0},\nlen = {1}'.format( degrm['ivl'],len(degrm['ivl'])))
         #print len(set(degrm['ivl']))
         link_tree = self.distToTree(linkage_matrix)
-
+        #glog.info('{0}'.format(link_tree.dist))
         treecolordict = self.travelTree(link_tree,G)
         treeclusters = self.clusterNodes(link_tree,treecolordict)
         self.writeTreeRecords(treeclusters,'data/alpha_%.2f_clustertree.txt'%self.alpha)
@@ -456,7 +467,7 @@ def diffalpha(alpha):
     #print nx.algorithms.topological_sort(G)
     #print gdata
 if __name__ == '__main__':
-    for alpha in range(50,100,5):
+    for alpha in range(5,100,5):
         alpha = float(alpha*1.0/100)
         pwd = os.getcwd()
         os.chdir('./pretrain')
