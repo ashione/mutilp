@@ -181,7 +181,7 @@ class GraphGenerator(object):
         #print len(G.nodes()),len(nodesDict.keys())
 
         fig,ax = plt.subplots()
-        print type(ax)
+        #print type(ax)
         #patch = curvePos(pos)
         #ax.add_patch(patch)
 
@@ -370,6 +370,7 @@ class GraphGenerator(object):
         for node in G.nodes():
             G.node[node]['category'] = colorDict[nodesDict[node+1]]
         dist_matrix = self.distMaxInPath(G)
+        np.savetxt('data/alpha_%.2f_clusterdist.txt'%self.alpha,dist_matrix,fmt='%.5f')
         glog.info('shortest_path shape : {0}'.format( dist_matrix.shape))
         #triu_dist_matrix =  dist_matrix[np.triu_indices_from(dist_matrix)]
         #dist_matrix[dist_matrix == 0 ] = np.inf
