@@ -163,9 +163,27 @@ class GraphGenerator(object):
         return G,pos
 
     @classmethod
+    def writeClusterMst(self,G):
+        G = nx.kruskal_mst(G)
+        f = open('data/alpha_%.2f_cluster_mst.txt'%self.alpha,'w')
+        glog.info(G.edge)
+        for i in range(0,len(G.nodes())):
+            for j in range(0,len(G.nodes())):
+                try :
+                    f.write('%.5f '%G.edge[i][j]['weight'])
+                except Exception,e:
+                    f.write('%.5f '%0.0)
+            f.write('\n')
+
+        f.close()
+        glog.info('write mst cluster done!')
+
+
+    @classmethod
     def drawByTripleArry(self,G,nodesDict,colorDict,showAllPoly=False):
 
         G = nx.kruskal_mst(G)
+        self.writeClusterMst(G)
         #pos = nx.spring_layout(G)
         #pos = nx.drawing.graphviz_layout(G,'fdp')
         pos = nx.drawing.graphviz_layout(G,'sfdp')
