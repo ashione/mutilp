@@ -82,7 +82,7 @@ class GraphGenerator(object):
 
     @classmethod
     def PolyArea2D(self,pts):
-        print pts
+        #print pts
         lines = np.hstack([pts,np.roll(pts,-1,axis=0)])
         area = 0.5*abs(sum(x1*y2-x2*y1 for x1,y1,x2,y2 in lines))
         return area
@@ -120,8 +120,8 @@ class GraphGenerator(object):
         #patch= mpatches.PathPatch(path,facecolor=color,alpha=0.5)
         #patch= mpatches.Polygon(verts,facecolor=color,alpha=0.5)
         verts = np.asarray(verts)
-        print 'pos',pos
-        print 'verts:',verts
+        #print 'pos',pos
+        #print 'verts:',verts
         fcenter = lambda x : (np.max(x)+np.min(x))/2
         xindex,yindex = fcenter(verts[:,0]),fcenter(verts[:,1])
         dist_r = np.sum(np.power(verts[0,:]-verts[1,:],2.0))**0.5/2.0
@@ -133,7 +133,7 @@ class GraphGenerator(object):
         #angle = poly.get_slope(verts[0,:],verts[1,:])
         if angle < 0 :
             angle += 1.0*np.pi
-        print angle,verts,xindex,yindex
+        #print angle,verts,xindex,yindex
         #patch= mpatches.Ellipse((xindex,yindex),height=height,width=width,angle=angle,facecolor=color,alpha=0.3,linestyle='dashed')
         patch= mpatches.Ellipse((xindex,yindex),height=2*dist_a,width=2*dist_b,facecolor=color,alpha=0.6,linestyle='dashed')
         return patch,verts
@@ -167,7 +167,7 @@ class GraphGenerator(object):
     def writeClusterMst(self,G):
         G = nx.kruskal_mst(G)
         f = open('data/alpha_%.2f_cluster_mst.txt'%self.alpha,'w')
-        glog.info('{0},{1}'.format(len(G.edges()),G.edge))
+        #glog.info('{0},{1}'.format(len(G.edges()),G.edge))
         self.Lntl = 0.0
         if not hasattr(self,'direct_dist_matrix'):
             self.direct_dist_matrix = self.distShortestInPath(G)
@@ -178,7 +178,7 @@ class GraphGenerator(object):
             for j in range(0,node_shape[1]):
                 try :
                     f.write('%.5f '%G.edge[i][j]['weight'])
-                    self.Lntl= G.edge[i][j]['weight']
+                    self.Lntl+= G.edge[i][j]['weight']
                 except Exception,e:
                     #glog.error(e)
                     f.write('%.5f '%0.0)
@@ -191,7 +191,7 @@ class GraphGenerator(object):
     def writeMstDegree(self,filename='data/alpha_0.50_mstDegree.txt'):
         self.gdegree = sorted(self.gdegree,key = lambda x:(x[1],x[0]),reverse=True)
         with open(filename,'w') as fp :
-            map(lambda x:fp.write('{0} : ({1}), degree = {2}\n'\
+            map(lambda x:fp.write('{0} : ({1}, {2})\n'\
                 .format(self.compyname[x[0]].encode('utf8'),\
                 x[0]+1,x[1])),self.gdegree)
             fp.close()
@@ -205,13 +205,18 @@ class GraphGenerator(object):
 
             glog.error('NotImplementedError')
             return
+
         maxdegreepos = filter(lambda x: x[1] == self.gdegree[0][1],self.gdegree)
-        maxdegreeinMindist = np.zeros((len(maxdegreepos,)))
+        glog.info('maxdegreepos : {0}'.format(maxdegreepos))
+        maxdegreeinMindist = np.zeros(len(maxdegreepos),dtype=np.float)
         for i,pos in enumerate(maxdegreepos):
             for v in G.edge[pos[0]].values():
                 maxdegreeinMindist[i]+=v['weight']
 
-        centerp = np.argmin(maxdegreeinMindist)
+        argcenter = np.argmin(maxdegreeinMindist)
+        glog.info(maxdegreeinMindist.shape)
+        glog.info(argcenter)
+        centerp =  self.gdegree[argcenter][0]
         self.lev = np.zeros((len(G.nodes()),))
         for v in range(len(G.nodes())):
             if v is not centerp:
@@ -253,9 +258,10 @@ class GraphGenerator(object):
             self.gdegree[node] = (node,G.degree([node])[node])
             if self.gdegree[node][1] > 1:
                 self.nln+=1
+
+        self.writeMstDegree('data/alpha_%.2f_MstDegree.txt'%self.alpha)
         self.computeMOL(G)
         self.computeCopheneticCoreelationCoef(G)
-        self.writeMstDegree('data/alpha_%.2f_MstDegree.txt'%self.alpha)
         # differen edges width
         #for edge in G.edges():
         #    edge = edge[0]
@@ -273,7 +279,7 @@ class GraphGenerator(object):
             else :
                 submap[v['category']].add(k)
 
-        glog.info('submap :{0}'.format(submap))
+        #glog.info('submap :{0}'.format(submap))
         # add connected_component_subgraphs in each subgraph
         patchList = []
         clusterNodesDt = []
@@ -337,8 +343,8 @@ class GraphGenerator(object):
 
     @classmethod
     def normalizationLenCluster(self,G,spos):
-        if not hasattr(self,'direct_dist_matrix'):
-            self.direct_dist_matrix = self.distShortestInPath(G)
+        #if not hasattr(self,'direct_dist_matrix'):
+        self.direct_dist_matrix = self.distShortestInPath(G)
         nlc = 0.0
         for i in range(0,len(spos)):
             for j in range(i+1,len(spos)):
@@ -357,7 +363,7 @@ class GraphGenerator(object):
             fp.write('Lmsm : {0} \nLntl : {1} \nLcpl : {2} \nnln : {3}\nLmol : {4}\nccc : {5}\n'\
                      .format(self.lmsm,self.Lntl,self.cpl,self.nln,self.Lmol,self.ccc))
 
-            map(lambda line:fp.write('{0} : Lc(t) : {1} {2} \n'\
+            map(lambda line:fp.write('{0:>12} : Lc(t) : {1:.5f} {2} \n'\
                 .format(str( line[0][0].encode('utf8') ),\
                 line[1],\
                 ' '.join(map(lambda x: str(self.compyname[x].encode('utf8'))+' ('+str(x+1)+') ',line[0][1])))),\
@@ -368,8 +374,8 @@ class GraphGenerator(object):
 
     @classmethod
     def distMaxInPath(self,G):
-        if hasattr(self,'dist_matrix'):
-            return self.dist_matrix
+        #if hasattr(self,'dist_matrix'):
+        #    return self.dist_matrix
 
         dist_shape = (len(G.nodes()),len(G.nodes()))
         dist_matrix = np.zeros(dist_shape)
@@ -390,8 +396,8 @@ class GraphGenerator(object):
 
     @classmethod
     def distShortestInPath(self,G):
-        if hasattr(self,'direct_dist_matrix'):
-            return self.direct_dist_matrix
+        #if hasattr(self,'direct_dist_matrix'):
+        #    return self.direct_dist_matrix
 
         dist_shape = (len(G.nodes()),len(G.nodes()))
         dist_matrix = np.zeros(dist_shape)
@@ -505,15 +511,15 @@ class GraphGenerator(object):
                    show_contracted = True,
                    #link_color_func = lambda x : G.node[x%smxt.shape[0]]['category'],
                    )
-        glog.info('{0},{1},{2}'.format( len( degrm['leaves'] ),degrm['leaves'],degrm))
-        glog.info('{0},\nlen = {1}'.format( degrm['ivl'],len(degrm['ivl'])))
+        #glog.info('{0},{1},{2}'.format( len( degrm['leaves'] ),degrm['leaves'],degrm))
+        #glog.info('{0},\nlen = {1}'.format( degrm['ivl'],len(degrm['ivl'])))
         #print len(set(degrm['ivl']))
         link_tree = self.distToTree(linkage_matrix)
         #glog.info('{0}'.format(link_tree.dist))
         treecolordict = self.travelTree(link_tree,G)
         treeclusters = self.clusterNodes(link_tree,treecolordict)
         self.writeTreeRecords(treeclusters,'data/alpha_%.2f_clustertree.txt'%self.alpha)
-        glog.info('clusters : {0},\n{1}'.format(treeclusters,len(treeclusters.keys())))
+        #glog.info('clusters : {0},\n{1}'.format(treeclusters,len(treeclusters.keys())))
         plt.savefig('data/alpha_%.2f_treefig.png'%self.alpha,pad_inches=0.05)
         #plt.show()
         #count = 0
@@ -592,12 +598,13 @@ def diffalpha(alpha):
     #print G.edge[0][173]['weight']
     #print nx.algorithms.topological_sort(G)
     #print gdata
+    del generator
 if __name__ == '__main__':
     for alpha in range(0,105,5):
         alpha = float(alpha*1.0/100)
         pwd = os.getcwd()
         os.chdir('./pretrain')
-        os.system('python MatrixTransform.py %f' %alpha)
+        os.system('python MatrixTransform.py %f > /dev/null' %alpha)
         os.chdir(pwd)
         diffalpha(alpha)
     #diffalpha(0.50)
