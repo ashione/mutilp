@@ -6,6 +6,7 @@
 # 8-7  generate data and picture
 # 8-9  generate tree dist and dpi about picture
 # 8-16 addition
+# 8-18 update
 import networkx as nx
 import numpy as np
 import os
@@ -20,10 +21,10 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 import scipy.cluster.hierarchy as sch
 import argparse
 import poly
+from multiprocessing import Pool
 #from IPython.Debugger import Tracer
 #coding=utf-8
 class GraphGenerator(object):
-    @classmethod
     def ConvertMatrixToGraph(self,filename):
         #mtx = np.loadtxt(filename)
         #print mtx
@@ -34,14 +35,12 @@ class GraphGenerator(object):
         return nx.from_numpy_matrix(np.loadtxt(filename))
         #return G
 
-    @classmethod
     def ConvertTripleArrayToGraph(filename):
         data = np.asarray(np.loadtxt(filename))
         G = nx.Graph()
         map(lambda x : G.add_edge(np.int(x[0]),np.int(x[1]),weight=x[2]),data)
         return G
 
-    @classmethod
     def ConvertOriginalXlsx(self,filename):
         glog.info('now reading xlsx : company name')
         compyorgdata = xlrd.open_workbook(filename)
@@ -52,7 +51,6 @@ class GraphGenerator(object):
         #print compyname[0],compyname[300]
         return self.compyname
 
-    @classmethod
     def ConvertXlsxToArray(self,filename):
         glog.info('Now reading xlsx file')
         compydata = xlrd.open_workbook(filename)
@@ -65,7 +63,6 @@ class GraphGenerator(object):
         return self.xlxsDict
 
 
-    @classmethod
     def curvePosPoly(self,pos,color):
         Path = mpath.Path
         patch_data = []
@@ -80,14 +77,12 @@ class GraphGenerator(object):
         #patch= mpatches.Ellipse((xindex,yindex),height=height,width=width,facecolor=color,alpha=0.3,linestyle='dashed')
         return patch
 
-    @classmethod
     def PolyArea2D(self,pts):
         #print pts
         lines = np.hstack([pts,np.roll(pts,-1,axis=0)])
         area = 0.5*abs(sum(x1*y2-x2*y1 for x1,y1,x2,y2 in lines))
         return area
 
-    @classmethod
     def curvePosHull(self,pos,color):
         Path = mpath.Path
         patch_data = []
@@ -138,7 +133,6 @@ class GraphGenerator(object):
         patch= mpatches.Ellipse((xindex,yindex),height=2*dist_a,width=2*dist_b,facecolor=color,alpha=0.6,linestyle='dashed')
         return patch,verts
 
-    @classmethod
     def autofited(self,G,pos):
         glog.info('autofited debug information starting')
         atnode1 = G.adj[80].keys()+[80]
@@ -163,14 +157,14 @@ class GraphGenerator(object):
         pos[225] =( pos[225][0],pos[225][1]+50)
         return G,pos
 
-    @classmethod
     def writeClusterMst(self,G):
         G = nx.kruskal_mst(G)
         f = open('data/alpha_%.2f_cluster_mst.txt'%self.alpha,'w')
         #glog.info('{0},{1}'.format(len(G.edges()),G.edge))
         self.Lntl = 0.0
-        if not hasattr(self,'direct_dist_matrix'):
-            self.direct_dist_matrix = self.distShortestInPath(G)
+        #if not hasattr(self,'direct_dist_matrix'):
+        self.direct_dist_matrix = self.distShortestInPath(G)
+
         triu_dist_matrix =  self.direct_dist_matrix[np.triu_indices_from(self.direct_dist_matrix)]
         node_shape = (len(G.nodes()),len(G.nodes()))
         self.lmsm = np.sum(triu_dist_matrix)*2.0/(node_shape[0]*(node_shape[1]-1))
@@ -187,7 +181,6 @@ class GraphGenerator(object):
         f.close()
         glog.info('write mst cluster done!')
 
-    @classmethod
     def writeMstDegree(self,filename='data/alpha_0.50_mstDegree.txt'):
         self.gdegree = sorted(self.gdegree,key = lambda x:(x[1],x[0]),reverse=True)
         with open(filename,'w') as fp :
@@ -197,7 +190,6 @@ class GraphGenerator(object):
             fp.close()
         glog.info('write degree done!')
 
-    @classmethod
     def computeMOL(self,G):
         if not hasattr(self,'gdegree') and \
             not hasattr(self,'direct_dist_matrix')  and \
@@ -224,7 +216,6 @@ class GraphGenerator(object):
 
         self.Lmol = np.mean(self.lev)
 
-    @classmethod
     def drawByTripleArry(self,G,nodesDict,colorDict,showAllPoly=False):
 
         G = nx.kruskal_mst(G)
@@ -341,17 +332,20 @@ class GraphGenerator(object):
         #plt.ylim(-0.02*1000,1.02*1500)
         #plt.show()
 
-    @classmethod
     def normalizationLenCluster(self,G,spos):
         #if not hasattr(self,'direct_dist_matrix'):
-        self.direct_dist_matrix = self.distShortestInPath(G)
+        #self.direct_dist_matrix = self.distShortestInPath(G)
         nlc = 0.0
         for i in range(0,len(spos)):
             for j in range(i+1,len(spos)):
-                nlc+=self.direct_dist_matrix[i,j]
+                #nlc+=self.direct_dist_matrix[spos[i],spos[j]]
+                try :
+                    nlc+=G.edge[spos[i]][spos[j]]['weight']
+                except Exception,e:
+                    glog.error('no edege includeing in {node}'.format(node=e))
+
         return nlc/len(spos)
 
-    @classmethod
     def writeTreeCluster(self,G,clusterNodesDt,clusterfn='clusterfn.txt'):
         if os.path.exists(clusterfn):
             glog.info('exists clusterfn,now removing it ,then writing')
@@ -372,7 +366,6 @@ class GraphGenerator(object):
             fp.close()
             glog.info('write done!')
 
-    @classmethod
     def distMaxInPath(self,G):
         #if hasattr(self,'dist_matrix'):
         #    return self.dist_matrix
@@ -394,7 +387,6 @@ class GraphGenerator(object):
         self.dist_matrix = dist_matrix
         return dist_matrix
 
-    @classmethod
     def distShortestInPath(self,G):
         #if hasattr(self,'direct_dist_matrix'):
         #    return self.direct_dist_matrix
@@ -410,14 +402,12 @@ class GraphGenerator(object):
                     dist_matrix[i,j]+= G.edge[p[i][j][k]][p[i][j][k+1]]['weight']
         return dist_matrix
 
-    @classmethod
     def distToTree(self,linkage_matrix):
         return sch.to_tree(linkage_matrix)
         #self.travelTree(link_tree)
         #print self.snode
         #return link_tree
 
-    @classmethod
     def travelTree(self,node,G):
         #print node.id,node.count
         if node.is_leaf():
@@ -435,7 +425,6 @@ class GraphGenerator(object):
             snodedict[node.id] = snodedict[node.left.id]
         return snodedict
 
-    @classmethod
     def treePreOrder(self,node):
         if node.is_leaf():
     #        Tracer()
@@ -448,7 +437,6 @@ class GraphGenerator(object):
         #return {'id' : tempNodes , 'dist' : node.dist}
         return  tempNodes
 
-    @classmethod
     def clusterNodes(self,node,treecolordict):
         if node.is_leaf():
             return {node.id : (node.id,node.dist)}
@@ -465,7 +453,6 @@ class GraphGenerator(object):
         rootorder.update(rightorder)
         return rootorder
 
-    @classmethod
     def writeTreeRecords(self,treecluster,tclusterf='./data/alpha_0.50_clustertree.txt'):
         if os.path.exists(tclusterf):
             os.remove(tclusterf)
@@ -477,7 +464,6 @@ class GraphGenerator(object):
                 ,treecluster.values())
             glog.info('write cluster tree done!')
 
-    @classmethod
     def drawHierarchicalTree(self,G,nodesDict,colorDict):
         G = nx.kruskal_mst(G)
         for node in G.nodes():
@@ -531,7 +517,6 @@ class GraphGenerator(object):
 
         #print type(link_tree),link_tree.is_leaf()
 
-    @classmethod
     def check_border(self,patchList):
         converPatches = []
         #converPatches.append(filter(lambda x: type(x) is not tuple,patchList)
@@ -546,11 +531,9 @@ class GraphGenerator(object):
                 converPatches.append(patchList[i][0])
         return converPatches
 
-    @classmethod
     def setalpha(self,alpha):
         self.alpha = alpha
 
-    @classmethod
     def computeCopheneticCoreelationCoef(self,G):
         direct_dist_matrix = self.distShortestInPath(G)
         dist_matrix = self.distMaxInPath(G)
@@ -574,7 +557,7 @@ def diffalpha(alpha):
     parser =argparse.ArgumentParser(description="draw graph script.")
     parser.add_argument('-xls',type=str,default='./companyPty.xlsx',help='excel file with color map')
     parser.add_argument('-tls',type=str,default='./shouxin.xlsx',help='excel file with node name')
-    parser.add_argument('-df',type=str,default='./pretrain/distfirm.txt',help='data set sources filename')
+    parser.add_argument('-df',type=str,default='./pretrain/distfirm_%.2f.txt'%alpha,help='data set sources filename')
     args = parser.parse_args()
     generator = GraphGenerator()
     generator.setalpha(alpha)
@@ -599,13 +582,18 @@ def diffalpha(alpha):
     #print nx.algorithms.topological_sort(G)
     #print gdata
     del generator
-if __name__ == '__main__':
-    for alpha in range(0,105,5):
-        alpha = float(alpha*1.0/100)
+def mapSolved(alpha):
         pwd = os.getcwd()
         os.chdir('./pretrain')
-        os.system('python MatrixTransform.py %f > /dev/null' %alpha)
+        if not os.path.exists('distfirm_%.2f.txt'%alpha):
+            os.system('python MatrixTransform.py %f > /dev/null' %alpha)
+
         os.chdir(pwd)
         diffalpha(alpha)
-    #diffalpha(0.50)
 
+if __name__ == '__main__':
+    alphalist  = [x*1.0/100 for x in  range(0,105,5)]
+    pooling = Pool(len(alphalist))
+    print pooling.map(mapSolved,alphalist)
+
+    #diffalpha(alpha=0.50)
