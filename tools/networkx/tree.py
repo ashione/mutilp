@@ -7,6 +7,7 @@
 # 8-9  generate tree dist and dpi about picture
 # 8-16 addition
 # 8-18 update
+# 9-12 resume triu_indices_from function
 import networkx as nx
 import numpy as np
 import os
@@ -168,18 +169,20 @@ class GraphGenerator(object):
         triu_dist_matrix =  self.direct_dist_matrix[np.triu_indices_from(self.direct_dist_matrix)]
         node_shape = (len(G.nodes()),len(G.nodes()))
         self.lmsm = np.sum(triu_dist_matrix)*2.0/(node_shape[0]*(node_shape[1]-1))
+        mstlen = 0
         for i in range(0,node_shape[0]):
-            for j in range(0,node_shape[1]):
+            for j in range(i+1,node_shape[1]):
                 try :
                     f.write('%.5f '%G.edge[i][j]['weight'])
                     self.Lntl+= G.edge[i][j]['weight']
+                    mstlen += 1
                 except Exception,e:
                     #glog.error(e)
                     f.write('%.5f '%0.0)
             f.write('\n')
         self.Lntl = self.Lntl / (node_shape[0]-1)
         f.close()
-        glog.info('write mst cluster done!')
+        glog.info('write mst cluster done!,Mst_len = {mstlen}'.format(mstlen=mstlen))
 
     def writeMstDegree(self,filename='data/alpha_0.50_mstDegree.txt'):
         self.gdegree = sorted(self.gdegree,key = lambda x:(x[1],x[0]),reverse=True)
@@ -336,15 +339,18 @@ class GraphGenerator(object):
         #if not hasattr(self,'direct_dist_matrix'):
         #self.direct_dist_matrix = self.distShortestInPath(G)
         nlc = 0.0
+        len_cluster = 0
         for i in range(0,len(spos)):
             for j in range(i+1,len(spos)):
                 #nlc+=self.direct_dist_matrix[spos[i],spos[j]]
                 try :
                     nlc+=G.edge[spos[i]][spos[j]]['weight']
+                    len_cluster+=1
                 except Exception,e:
                     glog.error('no edege includeing in {node}'.format(node=e))
 
-        return nlc/len(spos)
+        #return nlc/len(spos)
+        return nlc/len_cluster
 
     def writeTreeCluster(self,G,clusterNodesDt,clusterfn='clusterfn.txt'):
         if os.path.exists(clusterfn):
@@ -437,7 +443,19 @@ class GraphGenerator(object):
         #return {'id' : tempNodes , 'dist' : node.dist}
         return  tempNodes
 
-    def clusterNodes(self,node,treecolordict):
+    def newDistInCluster(self,nodes,dist_matrix):
+        tx = np.dstack(np.meshgrid(nodes,nodes,sparse=False,indexing='xy')).reshape(-1,2)
+        tx = tx[tx[:,0]!=tx[:,1]]
+        #glog.info(tx)
+        #print tx,tx.ravel()
+        try:
+            return dist_matrix[np.array(map(lambda x: (x[0],x[1]),tx))].min()
+        except Exception,e:
+            glog.fatal('{al},{exp},{tx}'.format(al=self.alpha,exp=e,tx=map(lambda x: (x[0],x[1]),tx)))
+            raise e
+
+
+    def clusterNodes(self,node,treecolordict,dist_matrix):
         if node.is_leaf():
             return {node.id : (node.id,node.dist)}
 
@@ -445,10 +463,13 @@ class GraphGenerator(object):
             #print node.id,node.count,node.left.id,node.right.id
             #print node.pre_order()
             return {node.id : (self.treePreOrder(node),node.dist)}
+            #resume orignal algorithm
+            #preorder = self.treePreOrder(node)
+            #return {node.id : (preorder,self.newDistInCluster(preorder,dist_matrix))}
 
         rootorder = {}
-        leftorder = self.clusterNodes(node.left,treecolordict)
-        rightorder = self.clusterNodes(node.right,treecolordict)
+        leftorder = self.clusterNodes(node.left,treecolordict,dist_matrix)
+        rightorder = self.clusterNodes(node.right,treecolordict,dist_matrix)
         rootorder.update(leftorder)
         rootorder.update(rightorder)
         return rootorder
@@ -471,8 +492,9 @@ class GraphGenerator(object):
         dist_matrix = self.distMaxInPath(G)
         np.savetxt('data/alpha_%.2f_clusterdist.txt'%self.alpha,dist_matrix,fmt='%.5f')
         glog.info('shortest_path shape : {0}'.format( dist_matrix.shape))
-        #triu_dist_matrix =  dist_matrix[np.triu_indices_from(dist_matrix)]
-        #dist_matrix[dist_matrix == 0 ] = np.inf
+        #triu_dist_matrix =  dist_matrix[np.triu_indices_from(dist_matrix,1)]
+        dist_matrix =  dist_matrix[np.triu_indices_from(dist_matrix,1)]
+        dist_matrix[dist_matrix == 0 ] = np.inf
         #print 'dist max',dist_matrix.max()
         linkage_matrix = linkage(dist_matrix, 'single',metric='euclidean')
         #linkage_matrix = linkage(dist_matrix, 'centroid',metric='euclidean')
@@ -485,8 +507,8 @@ class GraphGenerator(object):
         degrm = dendrogram(linkage_matrix,
                    #p=10000,
                    #color_threshold=1,
-                   truncate_mode='lastp',
-                   #truncate_mode='mlab',
+                   #truncate_mode='lastp',
+                   truncate_mode='mlab',
                    #truncate_mode='level',
                    #truncate_mode='mtica',
                    get_leaves = True,
@@ -503,7 +525,7 @@ class GraphGenerator(object):
         link_tree = self.distToTree(linkage_matrix)
         #glog.info('{0}'.format(link_tree.dist))
         treecolordict = self.travelTree(link_tree,G)
-        treeclusters = self.clusterNodes(link_tree,treecolordict)
+        treeclusters = self.clusterNodes(link_tree,treecolordict,dist_matrix)
         self.writeTreeRecords(treeclusters,'data/alpha_%.2f_clustertree.txt'%self.alpha)
         #glog.info('clusters : {0},\n{1}'.format(treeclusters,len(treeclusters.keys())))
         plt.savefig('data/alpha_%.2f_treefig.png'%self.alpha,pad_inches=0.05)
@@ -596,4 +618,4 @@ if __name__ == '__main__':
     pooling = Pool(len(alphalist))
     print pooling.map(mapSolved,alphalist)
 
-    #diffalpha(alpha=0.50)
+    #diffalpha(alpha=1.00)
