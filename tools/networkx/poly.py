@@ -46,5 +46,5 @@ def check_point_in_polygon(point,polygon):
     return intersect%2
 
 def check_polygon_cross_polyon(polygon1,polygon2):
-    glog.info('polygon : {0},type : {1}'.format(polygon1,type(polygon1)))
+    #glog.info('polygon : {0},type : {1}'.format(polygon1,type(polygon1)))
     return sum(map(lambda point : check_point_in_polygon(point,polygon2),polygon1)) == len(polygon1)

@@ -1,7 +1,9 @@
 # coding: UTF-8
 import sys
-import string
+#import string
 import math
+
+alpha =float(sys.argv[1]) if len(sys.argv) >= 2 else 0.5
 
 def MatrixTransform(m,n,matrix):
     bank1=[]
@@ -75,7 +77,7 @@ def MatrixTransform(m,n,matrix):
             n=n-1
         i=i+1
 
-    print u'\n除去孤点###########################################\n'
+    #print u'\n除去孤点###########################################\n'
     for i in range(0, m):
         print '\n',
         for j in range(0, n):
@@ -225,7 +227,7 @@ def MatrixTransform(m,n,matrix):
     return bank1,bank2,firm1,firm2,mfirm,nbank,indexBank,indexFirm
 
 
-def CalDist(m,n,alph):
+def CalDist(m,n,alpha):
     print u'\nCalDist###################################################\n'
     bank1,bank2,firm1,firm2,m,n,indexBank,indexFirm= MatrixTransform(m,n,matrix)
     print '\nmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',m,n
@@ -242,7 +244,7 @@ def CalDist(m,n,alph):
             dBank[i].append([])
             d1Bank[i][j] =  math.sqrt(2*(1-bank1[i][j]))
             d2Bank[i][j] = math.sqrt(2*(1-bank2[i][j]))
-            dBank[i][j] = alph*d1Bank[i][j]+(1-alph)*d2Bank[i][j]
+            dBank[i][j] = alpha*d1Bank[i][j]+(1-alpha)*d2Bank[i][j]
     d1Firm = []
     d2Firm = []
     dFirm = []
@@ -257,10 +259,10 @@ def CalDist(m,n,alph):
             dFirm[i].append([])
             d1Firm[i][j] =  math.sqrt(2*(1-firm1[i][j]))
             d2Firm[i][j] = math.sqrt(2*(1-firm2[i][j]))
-            dFirm[i][j] = alph*d1Firm[i][j]+(1-alph)*d2Firm[i][j]
+            dFirm[i][j] = alpha*d1Firm[i][j]+(1-alpha)*d2Firm[i][j]
 
     print u'\n计算公司距离###################################################\n'
-    filefirm = open('distfirm.txt','w')
+    filefirm = open('distfirm_%.2f.txt'%alpha,'w')
     for i in range(0, m):
         if i!=0:
             print '\n',
@@ -270,7 +272,7 @@ def CalDist(m,n,alph):
             filefirm.write(str(dFirm[i][j])+' ')
     filefirm.close()
     print u'\n计算银行距离###################################################\n'
-    filebank = open('distbank.txt','w')
+    filebank = open('distbank_%.2f.txt'%alpha,'w')
     for i in range(0, n):
         if (i !=0):
             print '\n',
@@ -281,7 +283,7 @@ def CalDist(m,n,alph):
     filebank.close()
 
     print u'\n01计算公司距离###################################################\n'
-    filefirm01 = open('distfirm01.txt','w')
+    filefirm01 = open('distfirm01_%.2f.txt'%alpha,'w')
     for i in range(0, m):
         if i!=0:
             filefirm01.write('\n')
@@ -291,7 +293,7 @@ def CalDist(m,n,alph):
 
 
     print u'\n公司01矩阵###################################################\n'
-    filefirmMatrix01 = open('distfirmMatrix01.txt','w')
+    filefirmMatrix01 = open('distfirmMatrix01_%.2f.txt'%alpha,'w')
     for i in range(0, m):
         if i!=0:
             filefirmMatrix01.write('\n')
@@ -304,7 +306,7 @@ def CalDist(m,n,alph):
 
 
     print u'\n01计算银行距离###################################################\n'
-    filebank01 = open('distbank01.txt','w')
+    filebank01 = open('distbank01_%.2f.txt'%alpha,'w')
     for i in range(0, n):
         if (i !=0):
             filebank01.write('\n')
@@ -312,12 +314,12 @@ def CalDist(m,n,alph):
             filebank01.write(str(bank1[i][j])+' ')
     filebank01.close()
 
-    fileindexBank = open('indexBank.txt','w')
+    fileindexBank = open('indexBank_%.2f.txt'%alpha,'w')
     for i in range(0, n):
         fileindexBank.write(str(indexBank[i])+' ')
     fileindexBank.close()
 
-    fileindexFirm = open('indexFirm.txt','w')
+    fileindexFirm = open('indexFirm_%.2f.txt'%alpha,'w')
     for i in range(0, m):
         fileindexFirm.write(str(indexFirm[i])+' ')
     fileindexFirm.close()
@@ -400,9 +402,8 @@ if __name__ == '__main__':
 #        for j in range(0, mafter):
 #            dFirm[i].append([])
 #    dBank,dFirm = CalDist(m,n,0.5)
-alph =float(sys.argv[1]) if len(sys.argv) >= 2 else 0.5
 
-#alph =0.5
+#alpha =0.5
 print '\nmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm',m,n
 d1Bank = []
 d2Bank = []
@@ -417,7 +418,7 @@ for i in range(0, n):
         dBank[i].append([])
         d1Bank[i][j] =  math.sqrt(2*(1-bank1[i][j]))
         d2Bank[i][j] = math.sqrt(2*(1-bank2[i][j]))
-        dBank[i][j] = alph*d1Bank[i][j]+(1-alph)*d2Bank[i][j]
+        dBank[i][j] = alpha*d1Bank[i][j]+(1-alpha)*d2Bank[i][j]
 d1Firm = []
 d2Firm = []
 dFirm = []
@@ -432,10 +433,10 @@ for i in range(0, m):
         dFirm[i].append([])
         d1Firm[i][j] =  math.sqrt(2*(1-firm1[i][j]))
         d2Firm[i][j] = math.sqrt(2*(1-firm2[i][j]))
-        dFirm[i][j] = alph*d1Firm[i][j]+(1-alph)*d2Firm[i][j]
+        dFirm[i][j] = alpha*d1Firm[i][j]+(1-alpha)*d2Firm[i][j]
 
-print u'\n计算公司距离###################################################\n'
-filefirm = open('distfirm.txt','w')
+#print u'\n计算公司距离###################################################\n'
+filefirm = open('distfirm_%.2f.txt'%alpha,'w')
 for i in range(0, m):
     if i!=0:
         print '\n',
@@ -444,8 +445,8 @@ for i in range(0, m):
         print dFirm[i][j],
         filefirm.write(str(dFirm[i][j])+' ')
 filefirm.close()
-print u'\n计算银行距离###################################################\n'
-filebank = open('distbank.txt','w')
+#print u'\n计算银行距离###################################################\n'
+filebank = open('distbank_%.2f.txt'%alpha,'w')
 for i in range(0, n):
     if (i !=0):
         print '\n',
@@ -455,8 +456,8 @@ for i in range(0, n):
         filebank.write(str(dBank[i][j])+' ')
 filebank.close()
 
-print u'\n01计算公司距离###################################################\n'
-filefirm01 = open('distfirm01.txt','w')
+#print u'\n01计算公司距离###################################################\n'
+filefirm01 = open('distfirm01_%.2f.txt'%alpha,'w')
 for i in range(0, m):
     if i!=0:
         filefirm01.write('\n')
@@ -464,8 +465,8 @@ for i in range(0, m):
         filefirm01.write(str(firm1[i][j])+' ')
 filefirm01.close()
 
-print u'\n公司01矩阵###################################################\n'
-filefirmMatrix01 = open('distfirmMatrix01.txt','w')
+#print u'\n公司01矩阵###################################################\n'
+filefirmMatrix01 = open('distfirmMatrix01_%.2f.txt'%alpha,'w')
 for i in range(0, m):
     if i!=0:
         filefirmMatrix01.write('\n')
@@ -476,8 +477,8 @@ for i in range(0, m):
             filefirmMatrix01.write('0'+' ')
 filefirmMatrix01.close()
 
-print u'\n01计算银行距离###################################################\n'
-filebank01 = open('distbank01.txt','w')
+#print u'\n01计算银行距离###################################################\n'
+filebank01 = open('distbank01_%.2f.txt'%alpha,'w')
 for i in range(0, n):
     if (i !=0):
         filebank01.write('\n')
@@ -486,8 +487,8 @@ for i in range(0, n):
 filebank01.close()
 
 
-print u'\n银行01矩阵###################################################\n'
-filebankMatrix01 = open('distbankMatrix01.txt','w')
+#print u'\n银行01矩阵###################################################\n'
+filebankMatrix01 = open('distbankMatrix01_%.2f.txt'%alpha,'w')
 for i in range(0, n):
     if i!=0:
         filebankMatrix01.write('\n')
@@ -498,12 +499,12 @@ for i in range(0, n):
             filebankMatrix01.write('0'+' ')
 filebankMatrix01.close()
 
-fileindexBank = open('indexBank.txt','w')
+fileindexBank = open('indexBank_%.2f.txt'%alpha,'w')
 for i in range(0, n):
     fileindexBank.write(str(indexBank[i])+' ')
 fileindexBank.close()
 
-fileindexFirm = open('indexFirm.txt','w')
+fileindexFirm = open('indexFirm_%.2f.txt'%alpha,'w')
 for i in range(0, m):
     fileindexFirm.write(str(indexFirm[i])+' ')
 fileindexFirm.close()

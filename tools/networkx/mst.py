@@ -4,7 +4,7 @@
 # 7-26 adding HierarchicalTree
 import networkx as nx
 import numpy as np
-import os
+#import os
 import matplotlib.pyplot as plt
 import glog
 import xlrd
@@ -41,7 +41,7 @@ class GraphGenerator(object):
         glog.info(u'xlsx file , %d sheets , and their names are %s' %(compydata.nsheets,compydata.sheet_names()))
         first_sheet = compydata.sheet_by_index(0)
         nodesSeq  =  np.asarray(map(lambda x : x.value,first_sheet.col_slice(start_rowx=2,end_rowx=first_sheet.nrows,colx=0)),dtype=np.int)
-        nodesType =  map(lambda x : x.value,first_sheet.col_slice(start_rowx=2,end_rowx=first_sheet.nrows,colx=2))
+        nodesType =  map(lambda x : x.value,first_sheet.col_slice(start_rowx=2,end_rowx=first_sheet.nrows,colx=1))
         glog.info('Reading nodes label orders and types : %d' %(nodesSeq.size))
         return { s : t for s,t in zip(nodesSeq,nodesType)}
 
@@ -81,11 +81,11 @@ class GraphGenerator(object):
         hull_border = hull.points[hull.vertices]
         glog.info( 'ConvexHull Area : %f' %self.PolyArea2D(hull_border))
 
-        patch= mpatches.Polygon(hull_border,facecolor=color,alpha=0.3,linestyle='dashed')
+        patch= mpatches.Polygon(hull_border,facecolor=color,alpha=0.7,linestyle='dashed')
         return patch,hull_border
 
     @classmethod
-    def curvePos(pos,color):
+    def curvePos(self,pos,color):
         Path = mpath.Path
         patch_data = []
         for k,ipos in pos.items():
@@ -158,7 +158,7 @@ class GraphGenerator(object):
         # different nodes cover different color
         for node in G.nodes():
             G.node[node]['category'] = colorDict[nodesDict[node+1]]
-            G.node[node]['node_size'] = np.log(np.e+G.degree([node])[node])*100
+            G.node[node]['node_size'] = np.log(np.e+G.degree([node])[node])*50
         # differen edges width
         #for edge in G.edges():
         #    edge = edge[0]
@@ -181,7 +181,7 @@ class GraphGenerator(object):
         for color in colorDict.values():
             spos = { x : pos[x] for x in submap[color] }
             #print spos
-            if len(spos.keys()) <=2 :
+            if len(spos.keys()) <2 :
                 continue
             subG =  G.subgraph(spos.keys())
             for connt in nx.connected_component_subgraphs(subG):
@@ -189,10 +189,12 @@ class GraphGenerator(object):
                 if len(sgpos.keys())>2:
                     #patch = curvePos(sgpos,color)
                     patchList.append(self.curvePosHull(sgpos,color))
+                    #patchList.append(self.curvePos(sgpos,color))
                     #patchList.append(patch)
 
         if not showAllPoly :
             patchList = self.check_border(patchList)
+            #patchList = patchList[1]
         map(lambda patch:ax.add_patch(patch),patchList)
         #nx.draw_networkx(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ], alpha=0.6,node_size=300,font_size=10,)
         #nx.draw_networkx_nodes(G,pos=pos,node_color= [ G.node[node]['category'] for node in G ],
@@ -218,6 +220,23 @@ class GraphGenerator(object):
         #plt.show()
 
     @classmethod
+    def covercolor(self,linkage_matrix,nodes,nodesDict,colorDict):
+        covercolor_map = {}
+        print 'nodes:',nodes
+        for i in nodes:
+            print i
+            covercolor_map[i] = colorDict[nodesDict[i+1]]
+
+        for item in linkage_matrix:
+            if covercolor_map.has_key(item[3]):
+                if item[0] == item[1] and item[0] != covercolor_map[item[3]]:
+                    covercolor_map[item[3]] = 'mix'
+            else :
+                covercolor_map[item[3]]= 'mix' if  item[0] !=item[1] else item[0]
+
+        return covercolor_map
+
+    @classmethod
     def drawHierarchicalTree(self,G,nodesDict,colorDict):
         G = nx.kruskal_mst(G)
         #mtx =  nx.algorithms.shortest_path_length(G)
@@ -225,39 +244,58 @@ class GraphGenerator(object):
         #print G.edges()
         #smxt = nx.to_scipy_sparse_matrix(G)
         smxt = nx.to_numpy_matrix(G)
+        #print smxt.shape
         for node in G.nodes():
             G.node[node]['category'] = colorDict[nodesDict[node+1]]
         #print smxt
         import scipy.sparse.csgraph as csgraph
         dist_matrix = csgraph.shortest_path(smxt)
-        #triu_dist_matrix =  dist_matrix[np.triu_indices(len(dist_matrix))]
+        print 'shortpath:',dist_matrix
+        triu_dist_matrix =  dist_matrix[np.triu_indices_from(dist_matrix)]
         #print triu_dist_matrix,len(triu_dist_matrix),type(triu_dist_matrix)
         #print triu_dist_matrix.tolist()
         #print dist_matrix
         #glog.info('199,34 =>  %f '%dist_matrix[199,34])
-        #dist_mat = triu_dist_matrix
-        #dist_mat = np.array( triu_dist_matrix.tolist() )
-        #linkage_matrix = linkage(dist_mat, 'complete')
+        dist_matrix = triu_dist_matrix
+        # it's important
+        dist_matrix[dist_matrix == 0] = np.inf
+        print 'triu',dist_matrix
+
+        fig,ax = plt.subplots()
+        #dist_matrix = np.array( triu_dist_matrix.tolist())
+        #linkage_matrix = linkage(dist_matrix, 'complete')
         linkage_matrix = linkage(dist_matrix, 'single')
-        #print linkage_matrix
+        print linkage_matrix,linkage_matrix.shape
+        np.savetxt('link.txt',linkage_matrix)
         #print smxt.shape[0]
-        plt.figure(101)
         plt.title("ascending")
+
         degrm = dendrogram(linkage_matrix,
-                   #color_threshold=1,
+                   #color_threshold=0.3,
+                   #p=601,
                    #truncate_mode='lastp',
                    #truncate_mode='mlab',
                    truncate_mode='level',
-                   labels=np.array([str(x) for x in range(smxt.shape[0])]),
+                   #labels=np.array([str(x) for x in range(smxt.shape[0])]),
                    distance_sort='ascending',
                    show_leaf_counts=True,
-                   orientation='left',
-                   link_color_func = lambda x : G.node[x%smxt.shape[0]]['category'],
+                   #orientation='left',
+                   link_color_func = lambda x : G.node[x]['category'] if x<smxt.shape[0] else '#000000',
                    )
-        glog.info('{0},{1},{2}'.format( degrm['leaves'],len( degrm['leaves'] ),degrm))
-        #print G.node[142]['category'],G.node[67]['category']
-        #plt.show()
 
+        glog.info('{0},{1},{2},{3}'.format( degrm['leaves'],len( degrm['leaves'] ),degrm,len(degrm['icoord'])))
+
+        pn = 37
+        x = degrm['icoord'][pn][0]
+        y = degrm['dcoord'][pn][0]
+        width = degrm['icoord'][pn][2]-x
+        height = degrm['dcoord'][pn][2]-y
+        patch= mpatches.Rectangle((x,y),width=width,height=height,facecolor='r',alpha=0.7,linestyle='dashed')
+        ax.add_patch(patch)
+        glog.info('x=%f y=%f w=%f h=%f'%(x,y,width,height)) #covercolor_map = self.covercolor(linkage_matrix,degrm['leaves'],nodesDict,colorDict)
+        #print covercolor_map
+        #print G.node[142]['category'],G.node[67]['category']
+        plt.show()
     @classmethod
     def check_border(self,patchList):
         converPatches = []
@@ -292,7 +330,7 @@ if __name__ == '__main__':
     #    print G.edge[x][y]
     #    G.edge[x][y]['weight'] = 1
     #    G.edge[y][x]['weight'] = 1
-    generator.drawByTripleArry(G,xlsxDict,colorDict)
+    #generator.drawByTripleArry(G,xlsxDict,colorDict)
     generator.drawHierarchicalTree(G,xlsxDict,colorDict)
     plt.show()
     #print G.edge[0][173]['weight']
