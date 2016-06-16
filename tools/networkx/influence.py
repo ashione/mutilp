@@ -4,6 +4,8 @@ import networkx as nx
 import os,sys
 import numpy as np
 import matplotlib.pyplot as plt
+import random
+import matplotlib.patches as mpatches
 
 firmNameList = np.loadtxt('firm.list',dtype=np.str)
 bankNameList = np.loadtxt('bank.list',dtype=np.str)
@@ -64,17 +66,30 @@ def max_strongly_connected_components(G):
 def floy_washall_shortest_distance(G):
     return nx.floyd_warshall_numpy(G)
 
+def get_cc1_cc2(G):
+    nodes_n = G.number_of_nodes()
+    return np.sum(nx.clustering(G).values())/nodes_n,np.sum(nx.square_clustering(G).values())/nodes_n
+
 def influence(raw_data,sorted_pr,func=cal_remove_firm,save_img=None,savepr=None):
     to_removed_list = []
     largest_components_arr = []
     E_arr = []
+    cc1s = []
+    cc2s = []
     print save_img
 
     x_len = len(sorted_pr)-1
     #x_len = 2
     random_pr = np.copy(sorted_pr)
+    random_to_removed_list = []
+    random_largest_components_arr = []
+    random_E_arr = []
+    random_cc1s = []
+    random_cc2s = []
+
 
     for i in range(x_len):
+        # remove by sorted
         to_removed_list.append(sorted_pr[i][0])
         fnc_matrix = func(raw_data,to_removed_list)
         G_new = nx.from_numpy_matrix(fnc_matrix)
@@ -84,21 +99,70 @@ def influence(raw_data,sorted_pr,func=cal_remove_firm,save_img=None,savepr=None)
         n_node = len(G_new.nodes())
         pct_components = len(largest_components)*1.0/raw_data.shape[0]
         E = distance_sum/(n_node*(n_node-1))
-        print 'ith :',i,len(largest_components)*1.0/raw_data.shape[0],distance_sum/(n_node*(n_node-1))
+        print 'ith :',sorted_pr[i][0],len(largest_components)*1.0/raw_data.shape[0],distance_sum/(n_node*(n_node-1))
         largest_components_arr.append(pct_components)
         E_arr.append(E)
-    x = np.array(range(x_len))
+        cc1,cc2 = get_cc1_cc2(G_new)
+        print 'cc1cc2',cc1,cc2
+        cc1s.append(cc1)
+        cc2s.append(cc2)
+
+        # remove random
+        random_index = random.randint(0,len(random_pr)-1)
+        print random_index
+        random_to_removed_list.append(random_pr[random_index][0])
+        random_pr = np.delete(random_pr,[random_index],axis=0)
+        print 'random_pr len',len(random_pr)
+        random_fnc_matrix = func(raw_data,random_to_removed_list)
+        random_G_new = nx.from_numpy_matrix(random_fnc_matrix)
+        #G_new = #remove_nodes(G,to_removed_list)
+        random_largest_components = max_strongly_connected_components(random_G_new)
+        random_distance_sum = np.power(np.sum(floy_washall_shortest_distance(random_G_new)),-1.0)
+        n_node = len(random_G_new.nodes())
+        random_pct_components = len(random_largest_components)*1.0/raw_data.shape[0]
+        E = random_distance_sum/(n_node*(n_node-1))
+        print 'random ith :',random_index,len(random_largest_components)*1.0/raw_data.shape[0],random_distance_sum/(n_node*(n_node-1))
+        random_largest_components_arr.append(random_pct_components)
+        random_E_arr.append(E)
+
+        random_cc1,random_cc2 = get_cc1_cc2(random_G_new)
+        print 'random cc1cc2',random_cc1,random_cc2
+        random_cc1s.append(random_cc1)
+        random_cc2s.append(random_cc2)
+
+    x = np.array(range(x_len),dtype=np.float)/(x_len)
     figure = plt.figure()
     figure.suptitle(save_img)
-    plt.subplot(121)
+    plt.subplot(221)
     plt.xlabel('removed nodes')
     plt.ylabel('H')
-    plt.plot(x,largest_components_arr,'bo')
-    plt.subplot(122)
+    lc1 = plt.plot(x,largest_components_arr,'bo',label='line1')
+    lc2 = plt.plot(x,random_largest_components_arr,'ro',label='line2')
+    red_patch = mpatches.Patch(color='red',label = 'deliberatly')
+    blue_patch = mpatches.Patch(color='blue',label = 'randomly')
+    #plt.legend([lc1,lc2],[blue_patch,red_patch])
+    plt.subplot(222)
     plt.xlabel('removed nodes')
     plt.ylabel('E')
-    plt.plot(x,E_arr,'ro')
+    ec1 = plt.plot(x,E_arr,'bo')
+    ec2 = plt.plot(x,random_E_arr,'ro')
+    #plt.legend([ec1,ec2],[blue_patch,red_patch])
     #plt.show()
+
+    plt.subplot(223)
+    plt.xlabel('removed nodes')
+    plt.ylabel('CC1')
+    clc1 = plt.plot(x,cc1s,'bo',label='cc1')
+    clc2 = plt.plot(x,random_cc1s,'ro',label='random_cc1')
+    #red_patch = mpatches.Patch(color='red',label = 'deliberatly')
+    #blue_patch = mpatches.Patch(color='blue',label = 'randomly')
+    #plt.legend([lc1,lc2],[blue_patch,red_patch])
+    plt.subplot(224)
+    plt.xlabel('removed nodes')
+    plt.ylabel('CC2')
+    scc1 = plt.plot(x,cc2s,'bo')
+    scc2 = plt.plot(x,random_cc2s,'ro')
+
     figure.savefig('inf_dir/'+save_img+'_'+func.func_name+'.png')
 
     # if call function is belonged to firm list, then useing firm list map to sorted results
