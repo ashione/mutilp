@@ -172,6 +172,7 @@ def influence(raw_data,sorted_pr,func=cal_remove_firm,save_img=None,savepr=None)
         mapNameList = bankNameList
 
     np.savetxt('{dirc}/{savetxt}.txt'.format(dirc='inf_dir',savetxt=save_img+'_'+func.func_name),np.transpose([largest_components_arr,E_arr]))
+    np.savetxt('{dirc}/{savetxt}.txt'.format(dirc='inf_dir',savetxt='cc1_cc1_'+save_img+'_'+func.func_name),np.column_stack((cc1s,random_cc1s,cc2s,random_cc2s)),fmt='%.6f %.6f %.6f %.6f')
     #np.savetxt('{dirc}/{savetxt}.txt'.format(dirc='inf_dir',savetxt='sorted_'+save_img+'_'+func.func_name),np.hstack((order_name,sorted_pr)),fmt='%s %d %.10f')
     save_f = open('{dirc}/{savetxt}.csv'.format(dirc='inf_dir',savetxt='sorted_'+save_img+'_'+func.func_name),'w')
 
