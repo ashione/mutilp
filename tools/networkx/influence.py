@@ -5,8 +5,9 @@ import os,sys
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.patches as mpatches
-
 firmNameList = np.loadtxt('firm.list',dtype=np.str)
 bankNameList = np.loadtxt('bank.list',dtype=np.str)
 
@@ -253,10 +254,9 @@ def pariticipation(data,fn):
     s = np.array([0.0]*data.shape[0])
     Y = np.array([0.0]*data.shape[0])
     for i in range(0,data.shape[0]):
+        s[i]+=len(G.edge[i].keys())
         for item in G.edge[i].keys():
-            s[i]+=G.edge[i][item]['weight']
-        for item in G.edge[i].keys():
-            Y[i]+=(G.edge[i][item]['weight']/s[i]) ** 2.0
+            Y[i]+=(1.0/s[i]) ** 2.0
 
     np.savetxt(fn,np.column_stack((s,Y)),fmt='%d %.5f')
 
